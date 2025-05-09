@@ -26,9 +26,9 @@ def log_metrics(writer, epoch, train_loss, train_acc, val_loss, val_acc, test_lo
     if test_acc is not None:
         writer.add_scalar("Acc/test",   test_acc,   epoch)
 
-def train_one_epoch(model, loader, criterion, optimizer, device, writer=None, epoch=None):
+def train_one_epoch(model, data_or_loader, criterion, optimizer, device, writer=None, epoch=None, is_gnn=False):
     """
-    Runs a full training pass over `loader`. 
+    Runs a full training pass. Works for both MLP and GNN models.
     If writer and epoch are provided, logs activation timings to TensorBoard.
     Returns: (average loss, accuracy)
     """
@@ -49,10 +49,14 @@ def train_one_epoch(model, loader, criterion, optimizer, device, writer=None, ep
             if device.type == "cuda":
                 torch.cuda.synchronize()
             elapsed = (time.time() - module._start_time) * 1000.0  # ms
-            # Get layer index and input size for more detailed naming
-            layer_idx = list(model).index(module)
-            input_size = inp[0].size()
-            name = f"Layer_{layer_idx}_ReLU_{input_size[1]}"
+            # Get layer index
+            layer_idx = 0
+            for m in model.modules():
+                if isinstance(m, (nn.ReLU, nn.Sigmoid, nn.Tanh, nn.LeakyReLU, nn.ELU, nn.GELU)):
+                    if m == module:
+                        break
+                    layer_idx += 1
+            name = f"Layer_{layer_idx}"
             activation_timings.setdefault(name, []).append(elapsed)
 
         # Register hooks on activation layers
@@ -62,17 +66,31 @@ def train_one_epoch(model, loader, criterion, optimizer, device, writer=None, ep
                 handles.append(module.register_forward_hook(post_hook))
 
     try:
-        for X, y in loader:                      # once for each batch. loop iterates once for each batch
-            X, y = X.to(device), y.to(device)
-            logits = model(X)
-            loss   = criterion(logits, y)
-
+        if is_gnn:
+            # GNN training
+            data = data_or_loader
+            out = model(data.x, data.edge_index)
+            loss = criterion(out[data.train_mask], data.y[data.train_mask])
             optimizer.zero_grad()
-            loss.backward() # backward pass 
-            optimizer.step() # grad. desc. (weight update)
+            loss.backward()
+            optimizer.step()
+            pred = out.argmax(dim=1)
+            acc = (pred[data.train_mask] == data.y[data.train_mask]).float().mean()
+            total_loss = loss.item()
+            correct = acc.item()
+        else:
+            # MLP training
+            for X, y in data_or_loader:
+                X, y = X.to(device), y.to(device)
+                logits = model(X)
+                loss = criterion(logits, y)
 
-            total_loss += loss.item() * X.size(0)
-            correct    += (logits.argmax(1) == y).sum().item()
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+
+                total_loss += loss.item() * X.size(0)
+                correct += (logits.argmax(1) == y).sum().item()
 
     finally:
         # Clean up hooks if we were measuring
@@ -90,33 +108,46 @@ def train_one_epoch(model, loader, criterion, optimizer, device, writer=None, ep
                 )
                 print(f"  {name}: {avg_time:.3f} ms (avg over {len(times)} calls)")
 
-    avg_loss = total_loss / len(loader.dataset)
-    acc      = correct / len(loader.dataset)
-    return avg_loss, acc
+    if is_gnn:
+        return total_loss, correct
+    else:
+        avg_loss = total_loss / len(data_or_loader.dataset)
+        acc = correct / len(data_or_loader.dataset)
+        return avg_loss, acc
 
-def eval_on(model, loader, criterion, device):
-    """Runs inference (no grad) over `loader`. Returns: (average loss, accuracy)"""
+def eval_on(model, data_or_loader, criterion, device, is_gnn=False, mask=None):
+    """Runs inference (no grad) over data. Works for both MLP and GNN models."""
     model.eval()
-    total_loss, correct = 0.0, 0
     with torch.no_grad():
-        for X, y in loader:
-            X, y = X.to(device), y.to(device)
-            logits = model(X)
-            total_loss += criterion(logits, y).item() * X.size(0)
-            correct    += (logits.argmax(1) == y).sum().item()
+        if is_gnn:
+            # GNN evaluation
+            data = data_or_loader
+            out = model(data.x, data.edge_index)
+            loss = criterion(out[mask], data.y[mask])
+            pred = out.argmax(dim=1)
+            acc = (pred[mask] == data.y[mask]).float().mean()
+            return loss.item(), acc.item()
+        else:
+            # MLP evaluation
+            total_loss, correct = 0.0, 0
+            for X, y in data_or_loader:
+                X, y = X.to(device), y.to(device)
+                logits = model(X)
+                total_loss += criterion(logits, y).item() * X.size(0)
+                correct += (logits.argmax(1) == y).sum().item()
+            avg_loss = total_loss / len(data_or_loader.dataset)
+            acc = correct / len(data_or_loader.dataset)
+            return avg_loss, acc
 
-    avg_loss = total_loss / len(loader.dataset)
-    acc      = correct / len(loader.dataset)
-    return avg_loss, acc
-
-def run_experiment(model, train_loader, val_loader, test_loader, device, writer, epochs=5, lr=1e-3):
+def run_experiment(model, train_data, val_data, test_data, device, writer, epochs=5, lr=1e-3, is_gnn=False):
     """Sets up Adam + CrossEntropyLoss, trains for epochs, logs metrics, and prints progress."""
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=lr)
 
     for epoch in range(1, epochs+1):
-        t_loss, t_acc = train_one_epoch(model, train_loader, criterion, optimizer, device, writer, epoch)
-        v_loss, v_acc = eval_on(model, val_loader, criterion, device)
+        t_loss, t_acc = train_one_epoch(model, train_data, criterion, optimizer, device, writer, epoch, is_gnn)
+        v_loss, v_acc = eval_on(model, val_data, criterion, device, is_gnn, 
+                              mask=val_data.val_mask if is_gnn else None)
         # Do NOT evaluate on test set here
         log_metrics(writer, epoch, t_loss, t_acc, v_loss, v_acc, None, None)
         print(f"Epoch {epoch:2d} | "
@@ -124,8 +155,78 @@ def run_experiment(model, train_loader, val_loader, test_loader, device, writer,
               f"Val {v_acc*100:5.2f}% ({v_loss:.4f})")
 
     # After all epochs, evaluate on test set ONCE
-    e_loss, e_acc = eval_on(model, test_loader, criterion, device)
+    e_loss, e_acc = eval_on(model, test_data, criterion, device, is_gnn,
+                           mask=test_data.test_mask if is_gnn else None)
     print(f"Final Test | Test {e_acc*100:5.2f}% ({e_loss:.4f})")
     summary_str = f"Final Test | Test {e_acc*100:5.2f}% ({e_loss:.4f})"
     writer.add_text("Final Test Summary", summary_str, epochs)
     writer.close()
+
+def train_epoch_gnn(model, data, optimizer, criterion, writer=None, epoch=None):
+    model.train()
+    optimizer.zero_grad()
+    
+    # Setup activation timing if writer is provided
+    handles = []
+    activation_timings = {}
+    
+    if writer is not None:
+        def pre_hook(module, inp):
+            if torch.cuda.is_available():
+                torch.cuda.synchronize()
+            module._start_time = time.time()
+
+        def post_hook(module, inp, outp):
+            if torch.cuda.is_available():
+                torch.cuda.synchronize()
+            elapsed = (time.time() - module._start_time) * 1000.0  # ms
+            # Get layer index
+            layer_idx = 0
+            for m in model.modules():
+                if isinstance(m, (nn.ReLU, nn.Sigmoid, nn.Tanh, nn.LeakyReLU, nn.ELU, nn.GELU)):
+                    if m == module:
+                        break
+                    layer_idx += 1
+            name = f"Layer_{layer_idx}"
+            activation_timings.setdefault(name, []).append(elapsed)
+
+        # Register hooks on activation layers
+        for name, module in model.named_modules():
+            if isinstance(module, (nn.ReLU, nn.Sigmoid, nn.Tanh, nn.LeakyReLU, nn.ELU, nn.GELU)):
+                handles.append(module.register_forward_pre_hook(pre_hook))
+                handles.append(module.register_forward_hook(post_hook))
+
+    try:
+        out = model(data.x, data.edge_index)
+        loss = criterion(out[data.train_mask], data.y[data.train_mask])
+        loss.backward()
+        optimizer.step()
+        pred = out.argmax(dim=1)
+        acc = (pred[data.train_mask] == data.y[data.train_mask]).float().mean()
+
+    finally:
+        # Clean up hooks if we were measuring
+        if writer is not None:
+            for h in handles:
+                h.remove()
+            
+            # Log activation timings to TensorBoard with descriptive names
+            for name, times in activation_timings.items():
+                avg_time = sum(times) / len(times)
+                writer.add_scalar(
+                    f"Activation_Time/{name}",
+                    avg_time,
+                    epoch
+                )
+                print(f"  {name}: {avg_time:.3f} ms (avg over {len(times)} calls)")
+
+    return loss.item(), acc.item()
+
+def eval_epoch_gnn(model, data, criterion, mask):
+    model.eval()
+    with torch.no_grad():
+        out = model(data.x, data.edge_index)
+        loss = criterion(out[mask], data.y[mask])
+        pred = out.argmax(dim=1)
+        acc = (pred[mask] == data.y[mask]).float().mean()
+    return loss.item(), acc.item()
