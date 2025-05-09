@@ -2,6 +2,7 @@ import torch
 from torch import nn, optim
 from torch.utils.tensorboard import SummaryWriter
 import time
+from torch.utils.data import DataLoader
 
 def get_device(model):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -42,13 +43,20 @@ def train_one_epoch(model, data_or_loader, criterion, optimizer, device, writer=
     if writer is not None:
         def pre_hook(module, inp):
             if device.type == "cuda":
-                torch.cuda.synchronize()
-            module._start_time = time.time()
+                module._start_event = torch.cuda.Event(enable_timing=True)
+                module._end_event = torch.cuda.Event(enable_timing=True)
+                module._start_event.record()
+            else:
+                module._start_time = time.time()
 
         def post_hook(module, inp, outp):
             if device.type == "cuda":
+                module._end_event.record()
                 torch.cuda.synchronize()
-            elapsed = (time.time() - module._start_time) * 1000.0  # ms
+                elapsed = module._start_event.elapsed_time(module._end_event)  # ms
+            else:
+                elapsed = (time.time() - module._start_time) * 1000.0  # ms
+            
             # Get layer index
             layer_idx = 0
             for m in model.modules():
@@ -67,17 +75,34 @@ def train_one_epoch(model, data_or_loader, criterion, optimizer, device, writer=
 
     try:
         if is_gnn:
-            # GNN training
-            data = data_or_loader
-            out = model(data.x, data.edge_index)
-            loss = criterion(out[data.train_mask], data.y[data.train_mask])
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-            pred = out.argmax(dim=1)
-            acc = (pred[data.train_mask] == data.y[data.train_mask]).float().mean()
-            total_loss = loss.item()
-            correct = acc.item()
+            # GNN training with batched data
+            if isinstance(data_or_loader, DataLoader):
+                for batch in data_or_loader:
+                    batch = batch.to(device)
+                    out = model(batch.x, batch.edge_index)
+                    loss = criterion(out[batch.train_mask], batch.y[batch.train_mask])
+                    optimizer.zero_grad()
+                    loss.backward()
+                    optimizer.step()
+                    pred = out.argmax(dim=1)
+                    acc = (pred[batch.train_mask] == batch.y[batch.train_mask]).float().mean()
+                    total_loss += loss.item()
+                    correct += acc.item()
+                # Average over batches
+                total_loss /= len(data_or_loader)
+                correct /= len(data_or_loader)
+            else:
+                # Single graph training
+                data = data_or_loader
+                out = model(data.x, data.edge_index)
+                loss = criterion(out[data.train_mask], data.y[data.train_mask])
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+                pred = out.argmax(dim=1)
+                acc = (pred[data.train_mask] == data.y[data.train_mask]).float().mean()
+                total_loss = loss.item()
+                correct = acc.item()
         else:
             # MLP training
             for X, y in data_or_loader:
@@ -100,13 +125,14 @@ def train_one_epoch(model, data_or_loader, criterion, optimizer, device, writer=
             
             # Log activation timings to TensorBoard with descriptive names
             for name, times in activation_timings.items():
-                avg_time = sum(times) / len(times)
-                writer.add_scalar(
-                    f"Activation_Time/{name}",
-                    avg_time,
-                    epoch
-                )
-                print(f"  {name}: {avg_time:.3f} ms (avg over {len(times)} calls)")
+                if times:  # Only log if we have measurements
+                    avg_time = sum(times) / len(times)
+                    writer.add_scalar(
+                        f"Activation_Time/{name}",
+                        avg_time,
+                        epoch
+                    )
+                    print(f"  {name}: {avg_time:.3f} ms (avg over {len(times)} calls)")
 
     if is_gnn:
         return total_loss, correct
@@ -121,12 +147,23 @@ def eval_on(model, data_or_loader, criterion, device, is_gnn=False, mask=None):
     with torch.no_grad():
         if is_gnn:
             # GNN evaluation
-            data = data_or_loader
-            out = model(data.x, data.edge_index)
-            loss = criterion(out[mask], data.y[mask])
-            pred = out.argmax(dim=1)
-            acc = (pred[mask] == data.y[mask]).float().mean()
-            return loss.item(), acc.item()
+            if isinstance(data_or_loader, DataLoader):
+                # For validation/test with full graph
+                data = next(iter(data_or_loader))  # Get the single graph from loader
+                data = data.to(device)
+                out = model(data.x, data.edge_index)
+                loss = criterion(out[mask], data.y[mask])
+                pred = out.argmax(dim=1)
+                acc = (pred[mask] == data.y[mask]).float().mean()
+                return loss.item(), acc.item()
+            else:
+                # Single graph evaluation
+                data = data_or_loader
+                out = model(data.x, data.edge_index)
+                loss = criterion(out[mask], data.y[mask])
+                pred = out.argmax(dim=1)
+                acc = (pred[mask] == data.y[mask]).float().mean()
+                return loss.item(), acc.item()
         else:
             # MLP evaluation
             total_loss, correct = 0.0, 0
@@ -144,10 +181,20 @@ def run_experiment(model, train_data, val_data, test_data, device, writer, epoch
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=lr)
 
+    # Get validation and test masks for GNN
+    val_mask = None
+    test_mask = None
+    if is_gnn:
+        # Get the full graph from the validation loader
+        val_graph = next(iter(val_data))
+        val_mask = val_graph.val_mask
+        # Get the full graph from the test loader
+        test_graph = next(iter(test_data))
+        test_mask = test_graph.test_mask
+
     for epoch in range(1, epochs+1):
         t_loss, t_acc = train_one_epoch(model, train_data, criterion, optimizer, device, writer, epoch, is_gnn)
-        v_loss, v_acc = eval_on(model, val_data, criterion, device, is_gnn, 
-                              mask=val_data.val_mask if is_gnn else None)
+        v_loss, v_acc = eval_on(model, val_data, criterion, device, is_gnn, mask=val_mask)
         # Do NOT evaluate on test set here
         log_metrics(writer, epoch, t_loss, t_acc, v_loss, v_acc, None, None)
         print(f"Epoch {epoch:2d} | "
@@ -155,8 +202,7 @@ def run_experiment(model, train_data, val_data, test_data, device, writer, epoch
               f"Val {v_acc*100:5.2f}% ({v_loss:.4f})")
 
     # After all epochs, evaluate on test set ONCE
-    e_loss, e_acc = eval_on(model, test_data, criterion, device, is_gnn,
-                           mask=test_data.test_mask if is_gnn else None)
+    e_loss, e_acc = eval_on(model, test_data, criterion, device, is_gnn, mask=test_mask)
     print(f"Final Test | Test {e_acc*100:5.2f}% ({e_loss:.4f})")
     summary_str = f"Final Test | Test {e_acc*100:5.2f}% ({e_loss:.4f})"
     writer.add_text("Final Test Summary", summary_str, epochs)
