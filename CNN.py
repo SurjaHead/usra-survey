@@ -7,8 +7,8 @@ import os
 from helpers import get_device, make_writer, run_experiment
 
 # — Hyperparameters —
-batch_size = 64 # lets try and see if increasing batch size will improve performance
-epochs     = 10 # probs adjust to 20 later
+batch_size = 64
+epochs     = 10
 learning_rate = 0.001
 
 # — Data Loaders —
@@ -37,18 +37,29 @@ test_loader = DataLoader(
 activation = nn.Sigmoid; activation_name = "Sigmoid"
 # activation = nn.Tanh; activation_name = "Tanh"
 
-model = nn.Sequential(
-    nn.Flatten(),         # 28×28 → 784
-    nn.Linear(784, 512),  # layer 1
-    activation(),         # activation 1
-    nn.Linear(512, 256),  # layer 2
-    activation(),         # activation 2
-    nn.Linear(256, 128),  # layer 3
-    activation(),         # activation 3
-    nn.Linear(128, 64),   # layer 4
-    activation(),         # activation 4
-    nn.Linear(64, 10)     # output layer
-)
+# — Model Definition —
+class SimpleCNN(nn.Module):
+    def __init__(self, activation):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Conv2d(1, 32, kernel_size=3, padding=1), # grayscale input,32 feature maps, 3x3 kernel, keep dimension same
+            activation(),
+            nn.Conv2d(32, 64, kernel_size=3, padding=1), # take in the 32 feature map, stacked as input, produce 64 feature maps... 
+            activation(),
+            nn.MaxPool2d(2), # turn each of the 64 horizontally "stacked" feature maps and turns their dimensions from 28x28 to 14x14?
+            # ^^ reduce spatial dimensions so that network can learn more complex patterns (more variance due to less spatial info?)
+            nn.Conv2d(64, 128, kernel_size=3, padding=1), # take in the 64 feature maps, produce 128 feature maps
+            activation(),
+            nn.MaxPool2d(2), ## our 128 feature maps go from 14x14 to 7x7
+            nn.Flatten(), # above turns into a 1D vector [128 * 7 * 7]
+            nn.Linear(128 * 7 * 7, 128), # using a classic MLP layer  
+            activation(), 
+            nn.Linear(128, 10) # output layer
+        )
+    def forward(self, x):
+        return self.net(x)
+
+model = SimpleCNN(activation)
 
 if __name__ == "__main__":
     try:
@@ -57,7 +68,7 @@ if __name__ == "__main__":
 
         print(f"▶ Beginning training for {epochs} epochs…")
         # Create a unique run directory with model and activation name
-        model_name = "MLP"
+        model_name = "CNN"
         run_dir = f"runs/{model_name}_{activation_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
         writer = make_writer(run_dir)
         run_experiment(

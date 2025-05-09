@@ -49,10 +49,10 @@ def train_one_epoch(model, loader, criterion, optimizer, device, writer=None, ep
             if device.type == "cuda":
                 torch.cuda.synchronize()
             elapsed = (time.time() - module._start_time) * 1000.0  # ms
-            # Get layer index and input size for more detailed naming
-            layer_idx = list(model).index(module)
-            input_size = inp[0].size()
-            name = f"Layer_{layer_idx}_ReLU_{input_size[1]}"
+            # Get layer name and input size for more detailed naming
+            module_name = module.__class__.__name__
+            input_channels = inp[0].size(1) if len(inp[0].size()) > 1 else inp[0].size(0)
+            name = f"{module_name}_{input_channels}"
             activation_timings.setdefault(name, []).append(elapsed)
 
         # Register hooks on activation layers
