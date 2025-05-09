@@ -33,9 +33,9 @@ test_loader = DataLoader(
 
 # — Activation Function —
 # Uncomment ONE of the following lines to choose the activation function:
-activation = nn.ReLU; activation_name = "ReLU"
-activation = nn.GELU; activation_name = "GELU"
-activation = nn.Sigmoid; activation_name = "Sigmoid"
+# activation = nn.ReLU; activation_name = "ReLU"
+# activation = nn.GELU; activation_name = "GELU"
+# activation = nn.Sigmoid; activation_name = "Sigmoid"
 activation = nn.Tanh; activation_name = "Tanh"
 
 class SimpleMLP(nn.Module):

@@ -26,9 +26,9 @@ DROPOUT_RATE = 0.4
 DROPEdge_P = 0.3
 
 # Activation function (uncomment one)
-activation = nn.ReLU; activation_name = "ReLU"
-activation = nn.GELU; activation_name = "GELU"
-activation = nn.Sigmoid; activation_name = "Sigmoid"
+# activation = nn.ReLU; activation_name = "ReLU"
+# activation = nn.GELU; activation_name = "GELU"
+# activation = nn.Sigmoid; activation_name = "Sigmoid"
 activation = nn.Tanh; activation_name = "Tanh"
 
 # — Data Loading —
