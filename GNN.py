@@ -18,7 +18,7 @@ from helpers import (
 )
 
 # — Hyperparameters —
-EPOCHS = 100
+EPOCHS = 10
 LR = 0.01
 WEIGHT_DECAY = 5e-4
 HIDDEN_DIMS = [32, 16, 8]  # Three hidden layers

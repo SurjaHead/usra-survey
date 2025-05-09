@@ -185,12 +185,9 @@ def run_experiment(model, train_data, val_data, test_data, device, writer, epoch
     val_mask = None
     test_mask = None
     if is_gnn:
-        # Get the full graph from the validation loader
-        val_graph = next(iter(val_data))
-        val_mask = val_graph.val_mask
-        # Get the full graph from the test loader
-        test_graph = next(iter(test_data))
-        test_mask = test_graph.test_mask
+        # For GNN, the data is already a graph object
+        val_mask = val_data.val_mask
+        test_mask = test_data.test_mask
 
     for epoch in range(1, epochs+1):
         t_loss, t_acc = train_one_epoch(model, train_data, criterion, optimizer, device, writer, epoch, is_gnn)
