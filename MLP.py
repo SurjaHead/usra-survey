@@ -5,15 +5,11 @@ from datetime import datetime
 import os
 import shutil
 
-from helpers import (
-    get_device,
-    make_writer,
-    run_experiment,
-)
+from helpers import get_device, make_writer, run_experiment
 
 # — Hyperparameters —
 batch_size = 64 # lets try and see if increasing batch size will improve performance
-epochs     = 10
+epochs     = 10 # probs adjust to 20 later
 learning_rate = 0.001
 
 # — Data Loaders —
