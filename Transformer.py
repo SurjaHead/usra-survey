@@ -10,12 +10,12 @@ from helpers import get_device, make_writer, run_experiment
 
 # — Hyperparameters —
 batch_size = 64
-epochs = 10
+epochs = 50
 learning_rate = 0.001
-d_model = 32
-nhead = 2
+d_model = 512
+nhead = 8
 num_layers = 2
-dim_feedforward = 64
+dim_feedforward = 1024
 
 # — Data Loaders —
 full_train_dataset = datasets.MNIST('data', train=True, download=True, transform=transforms.ToTensor())
@@ -61,7 +61,7 @@ class SimpleTransformer(nn.Module):
             d_model=d_model,
             nhead=nhead,
             dim_feedforward=dim_feedforward,
-            dropout=0.1,
+            dropout=0.0, # mandatory parameter but there is NO dropout in this model. 
             activation=activation_fn(),
             batch_first=True
         )

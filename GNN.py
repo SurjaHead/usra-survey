@@ -11,11 +11,9 @@ import shutil
 from helpers import get_device, make_writer, run_experiment
 
 # — Hyperparameters —
-EPOCHS = 10
-LR = 0.01
-WEIGHT_DECAY = 5e-4
-HIDDEN_DIMS = [64, 32, 16]
-DROPOUT_RATE = 0.1
+EPOCHS = 50
+LR = 0.001
+HIDDEN_DIMS = [512, 256, 128, 64]  # Four hidden layers to match MLP's 5 total layers
 BATCH_SIZE = 64
 
 # Activation function
@@ -40,27 +38,33 @@ class GNN(nn.Module):
         self.norm3 = GraphNorm(hidden_dims[2])
         self.activation3 = activation_fn()
         
-        # Add a final layer for graph-level classification
-        self.linear = nn.Linear(hidden_dims[2], out_channels)
+        self.conv4 = GCNConv(hidden_dims[2], hidden_dims[3])
+        self.norm4 = GraphNorm(hidden_dims[3])
+        self.activation4 = activation_fn()
+        
+        # Final layer for graph-level classification
+        self.linear = nn.Linear(hidden_dims[3], out_channels)
 
     def forward(self, x, edge_index, batch=None):
         # First layer
         x = self.conv1(x, edge_index)
         x = self.norm1(x)
         x = self.activation1(x)
-        x = F.dropout(x, p=DROPOUT_RATE, training=self.training)
         
         # Second layer
         x = self.conv2(x, edge_index)
         x = self.norm2(x)
         x = self.activation2(x)
-        x = F.dropout(x, p=DROPOUT_RATE, training=self.training)
         
         # Third layer
         x = self.conv3(x, edge_index)
         x = self.norm3(x)
         x = self.activation3(x)
-        x = F.dropout(x, p=DROPOUT_RATE, training=self.training)
+        
+        # Fourth layer
+        x = self.conv4(x, edge_index)
+        x = self.norm4(x)
+        x = self.activation4(x)
         
         # Global pooling to get graph-level features
         x = global_mean_pool(x, batch)

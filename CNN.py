@@ -9,7 +9,7 @@ from helpers import get_device, make_writer, run_experiment
 
 # — Hyperparameters —
 batch_size = 64
-epochs     = 10
+epochs     = 50
 learning_rate = 0.001
 
 # — Data Loaders —
