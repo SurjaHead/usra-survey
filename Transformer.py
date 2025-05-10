@@ -9,7 +9,7 @@ import shutil
 from helpers import get_device, make_writer, run_experiment
 
 # — Hyperparameters —
-batch_size = 32
+batch_size = 64
 epochs = 10
 learning_rate = 0.001
 d_model = 32
@@ -19,13 +19,8 @@ dim_feedforward = 64
 
 # — Data Loaders —
 full_train_dataset = datasets.MNIST('data', train=True, download=True, transform=transforms.ToTensor())
-# Take only 10% of the training data
-total_size = len(full_train_dataset)
-train_size = int(0.1 * total_size)  # 10% of total for training
-val_size = int(0.05 * total_size)   # 5% of total for validation
-# Use the remaining data for training
-train_size = total_size - val_size
-
+train_size = int(0.9 * len(full_train_dataset))
+val_size = len(full_train_dataset) - train_size
 train_dataset, val_dataset = random_split(full_train_dataset, [train_size, val_size])
 
 train_loader = DataLoader(
@@ -34,11 +29,11 @@ train_loader = DataLoader(
 )
 val_loader = DataLoader(
     val_dataset,
-    batch_size=batch_size, shuffle=False
+    batch_size=1000, shuffle=False
 )
 test_loader = DataLoader(
     datasets.MNIST('data', train=False, download=True, transform=transforms.ToTensor()),
-    batch_size=batch_size, shuffle=False
+    batch_size=1000, shuffle=False
 )
 
 # — Activation Function —
@@ -46,6 +41,8 @@ test_loader = DataLoader(
 # activation = nn.ReLU; activation_name = "ReLU"
 # activation = nn.GELU; activation_name = "GELU"
 # activation = nn.Sigmoid; activation_name = "Sigmoid"
+# activation = nn.ELU; activation_name = "ELU"
+# activation = nn.LeakyReLU; activation_name = "LeakyReLU"
 activation = nn.Tanh; activation_name = "Tanh"
 
 class SimpleTransformer(nn.Module):

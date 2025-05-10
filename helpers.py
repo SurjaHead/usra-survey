@@ -76,33 +76,20 @@ def train_one_epoch(model, data_or_loader, criterion, optimizer, device, writer=
     try:
         if is_gnn:
             # GNN training with batched data
-            if isinstance(data_or_loader, DataLoader):
-                for batch in data_or_loader:
-                    batch = batch.to(device)
-                    out = model(batch.x, batch.edge_index)
-                    loss = criterion(out[batch.train_mask], batch.y[batch.train_mask])
-                    optimizer.zero_grad()
-                    loss.backward()
-                    optimizer.step()
-                    pred = out.argmax(dim=1)
-                    acc = (pred[batch.train_mask] == batch.y[batch.train_mask]).float().mean()
-                    total_loss += loss.item()
-                    correct += acc.item()
-                # Average over batches
-                total_loss /= len(data_or_loader)
-                correct /= len(data_or_loader)
-            else:
-                # Single graph training
-                data = data_or_loader
-                out = model(data.x, data.edge_index)
-                loss = criterion(out[data.train_mask], data.y[data.train_mask])
+            for batch in data_or_loader:
+                batch = batch.to(device)
+                out = model(batch.x, batch.edge_index, batch.batch)
+                loss = criterion(out, batch.y)
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
                 pred = out.argmax(dim=1)
-                acc = (pred[data.train_mask] == data.y[data.train_mask]).float().mean()
-                total_loss = loss.item()
-                correct = acc.item()
+                acc = (pred == batch.y).float().mean()
+                total_loss += loss.item()
+                correct += acc.item()
+            # Average over batches
+            total_loss /= len(data_or_loader)
+            correct /= len(data_or_loader)
         else:
             # MLP training
             for X, y in data_or_loader:
@@ -141,29 +128,25 @@ def train_one_epoch(model, data_or_loader, criterion, optimizer, device, writer=
         acc = correct / len(data_or_loader.dataset)
         return avg_loss, acc
 
-def eval_on(model, data_or_loader, criterion, device, is_gnn=False, mask=None):
+def eval_on(model, data_or_loader, criterion, device, is_gnn=False):
     """Runs inference (no grad) over data. Works for both MLP and GNN models."""
     model.eval()
     with torch.no_grad():
         if is_gnn:
-            # GNN evaluation
-            if isinstance(data_or_loader, DataLoader):
-                # For validation/test with full graph
-                data = next(iter(data_or_loader))  # Get the single graph from loader
-                data = data.to(device)
-                out = model(data.x, data.edge_index)
-                loss = criterion(out[mask], data.y[mask])
+            # GNN evaluation with batched data
+            total_loss, correct = 0.0, 0
+            for batch in data_or_loader:
+                batch = batch.to(device)
+                out = model(batch.x, batch.edge_index, batch.batch)
+                loss = criterion(out, batch.y)
                 pred = out.argmax(dim=1)
-                acc = (pred[mask] == data.y[mask]).float().mean()
-                return loss.item(), acc.item()
-            else:
-                # Single graph evaluation
-                data = data_or_loader
-                out = model(data.x, data.edge_index)
-                loss = criterion(out[mask], data.y[mask])
-                pred = out.argmax(dim=1)
-                acc = (pred[mask] == data.y[mask]).float().mean()
-                return loss.item(), acc.item()
+                acc = (pred == batch.y).float().mean()
+                total_loss += loss.item()
+                correct += acc.item()
+            # Average over batches
+            total_loss /= len(data_or_loader)
+            correct /= len(data_or_loader)
+            return total_loss, correct
         else:
             # MLP evaluation
             total_loss, correct = 0.0, 0
@@ -181,17 +164,9 @@ def run_experiment(model, train_data, val_data, test_data, device, writer, epoch
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=lr)
 
-    # Get validation and test masks for GNN
-    val_mask = None
-    test_mask = None
-    if is_gnn:
-        # For GNN, the data is already a graph object
-        val_mask = val_data.val_mask
-        test_mask = test_data.test_mask
-
     for epoch in range(1, epochs+1):
         t_loss, t_acc = train_one_epoch(model, train_data, criterion, optimizer, device, writer, epoch, is_gnn)
-        v_loss, v_acc = eval_on(model, val_data, criterion, device, is_gnn, mask=val_mask)
+        v_loss, v_acc = eval_on(model, val_data, criterion, device, is_gnn)
         # Do NOT evaluate on test set here
         log_metrics(writer, epoch, t_loss, t_acc, v_loss, v_acc, None, None)
         print(f"Epoch {epoch:2d} | "
@@ -199,7 +174,7 @@ def run_experiment(model, train_data, val_data, test_data, device, writer, epoch
               f"Val {v_acc*100:5.2f}% ({v_loss:.4f})")
 
     # After all epochs, evaluate on test set ONCE
-    e_loss, e_acc = eval_on(model, test_data, criterion, device, is_gnn, mask=test_mask)
+    e_loss, e_acc = eval_on(model, test_data, criterion, device, is_gnn)
     print(f"Final Test | Test {e_acc*100:5.2f}% ({e_loss:.4f})")
     summary_str = f"Final Test | Test {e_acc*100:5.2f}% ({e_loss:.4f})"
     writer.add_text("Final Test Summary", summary_str, epochs)

@@ -2,13 +2,14 @@ import os
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch_geometric.datasets import Planetoid
+from torch_geometric.datasets import MNISTSuperpixels
 from torch_geometric.transforms import NormalizeFeatures
-from torch_geometric.nn import GCNConv, GraphNorm
+from torch_geometric.nn import GCNConv, GraphNorm, global_mean_pool
 from torch_geometric.utils import dropout_edge
 from torch.utils.tensorboard import SummaryWriter
 from datetime import datetime
 import shutil
+from torch_geometric.loader import DataLoader
 
 from helpers import (
     get_device,
@@ -19,22 +20,30 @@ from helpers import (
 
 # — Hyperparameters —
 EPOCHS = 10
-LR = 0.01
+LR = 0.001
 WEIGHT_DECAY = 5e-4
 HIDDEN_DIMS = [32, 16, 8]  # Three hidden layers
 DROPOUT_RATE = 0.4
-DROPEdge_P = 0.3
+BATCH_SIZE = 64
 
 # Activation function (uncomment one)
 # activation = nn.ReLU; activation_name = "ReLU"
 # activation = nn.GELU; activation_name = "GELU"
 # activation = nn.Sigmoid; activation_name = "Sigmoid"
+# activation = nn.ELU; activation_name = "ELU"
+# activation = nn.LeakyReLU; activation_name = "LeakyReLU"
 activation = nn.Tanh; activation_name = "Tanh"
 
 # — Data Loading —
-dataset = Planetoid(root='/tmp/Cora', name='Cora',
-                    transform=NormalizeFeatures())
-data = dataset[0]
+dataset = MNISTSuperpixels(root='data/MNISTSuperpixels')
+train_size = int(0.9 * len(dataset))
+val_size = len(dataset) - train_size
+train_dataset, val_dataset = torch.utils.data.random_split(dataset, [train_size, val_size])
+test_dataset = MNISTSuperpixels(root='data/MNISTSuperpixels', train=False)
+
+train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
+val_loader = DataLoader(val_dataset, batch_size=1000, shuffle=False)
+test_loader = DataLoader(test_dataset, batch_size=1000, shuffle=False)
 
 # — Model Definition —
 class SimpleGNN(nn.Module):
@@ -54,24 +63,27 @@ class SimpleGNN(nn.Module):
         
         self.linear = nn.Linear(hidden_dims[2], out_channels)
 
-    def forward(self, x, edge_index):
+    def forward(self, x, edge_index, batch):
         # First layer
         x = self.conv1(x, edge_index)
         x = self.norm1(x)
         x = self.activation1(x)
-        x = F.dropout(x, p=0.5, training=self.training)
+        x = F.dropout(x, p=DROPOUT_RATE, training=self.training)
         
         # Second layer
         x = self.conv2(x, edge_index)
         x = self.norm2(x)
         x = self.activation2(x)
-        x = F.dropout(x, p=0.5, training=self.training)
+        x = F.dropout(x, p=DROPOUT_RATE, training=self.training)
         
         # Third layer
         x = self.conv3(x, edge_index)
         x = self.norm3(x)
         x = self.activation3(x)
-        x = F.dropout(x, p=0.5, training=self.training)
+        x = F.dropout(x, p=DROPOUT_RATE, training=self.training)
+        
+        # Global mean pooling
+        x = global_mean_pool(x, batch)
         
         # Output layer
         x = self.linear(x)
@@ -80,11 +92,10 @@ class SimpleGNN(nn.Module):
 # — Main Experiment Loop —
 def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    data_dev = data.to(device)
     model = SimpleGNN(
         in_channels=dataset.num_node_features,
         hidden_dims=HIDDEN_DIMS,
-        out_channels=dataset.num_classes,
+        out_channels=10,  # 10 digits
         activation_fn=activation
     ).to(device)
 
@@ -108,9 +119,9 @@ def main():
     # Run experiment with GNN flag
     run_experiment(
         model,
-        data_dev,  # train data
-        data_dev,  # val data
-        data_dev,  # test data
+        train_loader,
+        val_loader,
+        test_loader,
         device,
         writer,
         epochs=EPOCHS,

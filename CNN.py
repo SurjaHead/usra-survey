@@ -36,6 +36,8 @@ test_loader = DataLoader(
 # activation = nn.ReLU; activation_name = "ReLU"
 # activation = nn.GELU; activation_name = "GELU"
 # activation = nn.Sigmoid; activation_name = "Sigmoid"
+# activation = nn.ELU; activation_name = "ELU"
+# activation = nn.LeakyReLU; activation_name = "LeakyReLU"
 activation = nn.Tanh; activation_name = "Tanh"
 
 # — Model Definition —
