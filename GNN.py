@@ -2,51 +2,30 @@ import os
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch_geometric.datasets import MNISTSuperpixels
-from torch_geometric.transforms import NormalizeFeatures
 from torch_geometric.nn import GCNConv, GraphNorm, global_mean_pool
-from torch_geometric.utils import dropout_edge
-from torch.utils.tensorboard import SummaryWriter
+from torch_geometric.datasets import MNISTSuperpixels
+from torch_geometric.loader import DataLoader
 from datetime import datetime
 import shutil
-from torch_geometric.loader import DataLoader
 
-from helpers import (
-    get_device,
-    make_writer,
-    log_metrics,
-    run_experiment
-)
+from helpers import get_device, make_writer, run_experiment
 
 # — Hyperparameters —
 EPOCHS = 10
-LR = 0.001
+LR = 0.01
 WEIGHT_DECAY = 5e-4
-HIDDEN_DIMS = [32, 16, 8]  # Three hidden layers
-DROPOUT_RATE = 0.4
+HIDDEN_DIMS = [64, 32, 16]
+DROPOUT_RATE = 0.1
 BATCH_SIZE = 64
 
-# Activation function (uncomment one)
+# Activation function
+# Uncomment ONE of the following lines to choose the activation function:
 # activation = nn.ReLU; activation_name = "ReLU"
 # activation = nn.GELU; activation_name = "GELU"
 # activation = nn.Sigmoid; activation_name = "Sigmoid"
-# activation = nn.ELU; activation_name = "ELU"
-# activation = nn.LeakyReLU; activation_name = "LeakyReLU"
 activation = nn.Tanh; activation_name = "Tanh"
 
-# — Data Loading —
-dataset = MNISTSuperpixels(root='data/MNISTSuperpixels')
-train_size = int(0.9 * len(dataset))
-val_size = len(dataset) - train_size
-train_dataset, val_dataset = torch.utils.data.random_split(dataset, [train_size, val_size])
-test_dataset = MNISTSuperpixels(root='data/MNISTSuperpixels', train=False)
-
-train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
-val_loader = DataLoader(val_dataset, batch_size=1000, shuffle=False)
-test_loader = DataLoader(test_dataset, batch_size=1000, shuffle=False)
-
-# — Model Definition —
-class SimpleGNN(nn.Module):
+class GNN(nn.Module):
     def __init__(self, in_channels, hidden_dims, out_channels, activation_fn):
         super().__init__()
         self.conv1 = GCNConv(in_channels, hidden_dims[0])
@@ -61,9 +40,10 @@ class SimpleGNN(nn.Module):
         self.norm3 = GraphNorm(hidden_dims[2])
         self.activation3 = activation_fn()
         
+        # Add a final layer for graph-level classification
         self.linear = nn.Linear(hidden_dims[2], out_channels)
 
-    def forward(self, x, edge_index, batch):
+    def forward(self, x, edge_index, batch=None):
         # First layer
         x = self.conv1(x, edge_index)
         x = self.norm1(x)
@@ -82,28 +62,43 @@ class SimpleGNN(nn.Module):
         x = self.activation3(x)
         x = F.dropout(x, p=DROPOUT_RATE, training=self.training)
         
-        # Global mean pooling
+        # Global pooling to get graph-level features
         x = global_mean_pool(x, batch)
         
         # Output layer
         x = self.linear(x)
-        return F.log_softmax(x, dim=1)
+        return x
 
-# — Main Experiment Loop —
 def main():
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model = SimpleGNN(
-        in_channels=dataset.num_node_features,
+    # Load MNIST Superpixels dataset
+    print("Loading MNIST Superpixels dataset...")
+    train_dataset = MNISTSuperpixels(root='data/MNISTSuperpixels', train=True)
+    test_dataset = MNISTSuperpixels(root='data/MNISTSuperpixels', train=False)
+    
+    # Split training data into train and validation
+    train_size = int(0.9 * len(train_dataset))
+    val_size = len(train_dataset) - train_size
+    train_dataset, val_dataset = torch.utils.data.random_split(train_dataset, [train_size, val_size])
+    
+    # Create data loaders
+    train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
+    val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE)
+    test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE)
+    
+    # Create model
+    model = GNN(
+        in_channels=train_dataset[0].num_node_features,  # Features per superpixel
         hidden_dims=HIDDEN_DIMS,
-        out_channels=10,  # 10 digits
+        out_channels=10,  # 10 classes for MNIST
         activation_fn=activation
-    ).to(device)
-
-    # Setup logging with activation name in the run directory
+    )
+    device = get_device(model)
+    
+    # Setup logging
     base_run_dir = 'runs'
     model_run_prefix = f'GNN_{activation_name}'
     
-    # Remove all existing runs with the same model and activation
+    # Remove existing runs
     if os.path.exists(base_run_dir):
         for item in os.listdir(base_run_dir):
             if item.startswith(model_run_prefix):
@@ -111,12 +106,12 @@ def main():
                 print(f"Removing previous run directory: {full_path}")
                 shutil.rmtree(full_path)
     
-    # Create new run directory with timestamp
+    # Create new run directory
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     run_dir = os.path.join(base_run_dir, f"{model_run_prefix}_{timestamp}")
     writer = make_writer(run_dir)
-
-    # Run experiment with GNN flag
+    
+    # Run experiment
     run_experiment(
         model,
         train_loader,
@@ -130,4 +125,4 @@ def main():
     )
 
 if __name__ == "__main__":
-    main()
+    main() 
