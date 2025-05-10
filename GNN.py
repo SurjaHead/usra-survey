@@ -18,12 +18,13 @@ from helpers import (
 )
 
 # — Hyperparameters —
-EPOCHS = 10
+EPOCHS = 50
 LR = 0.01
 WEIGHT_DECAY = 5e-4
 HIDDEN_DIMS = [32, 16, 8]  # Three hidden layers
 DROPOUT_RATE = 0.4
 DROPEdge_P = 0.3
+BATCH_SIZE = 64  # Added batch size parameter
 
 # Activation function (uncomment one)
 # activation = nn.ReLU; activation_name = "ReLU"
@@ -35,6 +36,31 @@ activation = nn.Tanh; activation_name = "Tanh"
 dataset = Planetoid(root='/tmp/Cora', name='Cora',
                     transform=NormalizeFeatures())
 data = dataset[0]
+
+# Create custom train/val split (90/10)
+num_nodes = data.num_nodes
+train_size = int(0.9 * num_nodes)
+val_size = num_nodes - train_size
+
+# TURNS NODES ON AND OFF BASED ON THE TRAIN/VAL SIZE
+
+# Create random indices for train/val split
+indices = torch.randperm(num_nodes)
+train_indices = indices[:train_size]
+val_indices = indices[train_size:]
+
+# Create masks
+train_mask = torch.zeros(num_nodes, dtype=torch.bool)
+val_mask = torch.zeros(num_nodes, dtype=torch.bool)
+test_mask = data.test_mask  # Keep original test mask
+
+# Set masks
+train_mask[train_indices] = True
+val_mask[val_indices] = True
+
+# Update data object with new masks
+data.train_mask = train_mask
+data.val_mask = val_mask
 
 # — Model Definition —
 class SimpleGNN(nn.Module):
@@ -75,18 +101,20 @@ class SimpleGNN(nn.Module):
         
         # Output layer
         x = self.linear(x)
-        return F.log_softmax(x, dim=1)
+        return x
 
 # — Main Experiment Loop —
 def main():
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    data_dev = data.to(device)
+    
+    
     model = SimpleGNN(
         in_channels=dataset.num_node_features,
         hidden_dims=HIDDEN_DIMS,
         out_channels=dataset.num_classes,
         activation_fn=activation
-    ).to(device)
+    )
+    device = get_device(model)
+    data_dev = data.to(device)
 
     # Setup logging with activation name in the run directory
     base_run_dir = 'runs'
