@@ -2,68 +2,30 @@ import os
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch_geometric.datasets import Planetoid
-from torch_geometric.transforms import NormalizeFeatures
-from torch_geometric.nn import GCNConv, GraphNorm
-from torch_geometric.utils import dropout_edge
-from torch.utils.tensorboard import SummaryWriter
+from torch_geometric.nn import GCNConv, GraphNorm, global_mean_pool
+from torch_geometric.datasets import MNISTSuperpixels
+from torch_geometric.loader import DataLoader
 from datetime import datetime
 import shutil
 
-from helpers import (
-    get_device,
-    make_writer,
-    log_metrics,
-    run_experiment
-)
+from helpers import get_device, make_writer, run_experiment
 
 # — Hyperparameters —
-EPOCHS = 50
+EPOCHS = 10
 LR = 0.01
 WEIGHT_DECAY = 5e-4
-HIDDEN_DIMS = [32, 16, 8]  # Three hidden layers
-DROPOUT_RATE = 0.4
-DROPEdge_P = 0.3
-BATCH_SIZE = 64  # Added batch size parameter
+HIDDEN_DIMS = [64, 32, 16]
+DROPOUT_RATE = 0.1
+BATCH_SIZE = 64
 
-# Activation function (uncomment one)
+# Activation function
+# Uncomment ONE of the following lines to choose the activation function:
 # activation = nn.ReLU; activation_name = "ReLU"
 # activation = nn.GELU; activation_name = "GELU"
 # activation = nn.Sigmoid; activation_name = "Sigmoid"
 activation = nn.Tanh; activation_name = "Tanh"
 
-# — Data Loading —
-dataset = Planetoid(root='/tmp/Cora', name='Cora',
-                    transform=NormalizeFeatures())
-data = dataset[0]
-
-# Create custom train/val split (90/10)
-num_nodes = data.num_nodes
-train_size = int(0.9 * num_nodes)
-val_size = num_nodes - train_size
-
-# TURNS NODES ON AND OFF BASED ON THE TRAIN/VAL SIZE
-
-# Create random indices for train/val split
-indices = torch.randperm(num_nodes)
-train_indices = indices[:train_size]
-val_indices = indices[train_size:]
-
-# Create masks
-train_mask = torch.zeros(num_nodes, dtype=torch.bool)
-val_mask = torch.zeros(num_nodes, dtype=torch.bool)
-test_mask = data.test_mask  # Keep original test mask
-
-# Set masks
-train_mask[train_indices] = True
-val_mask[val_indices] = True
-
-# Update data object with new masks
-data.train_mask = train_mask
-data.val_mask = val_mask
-
-# — Model Definition —
-class SimpleGNN(nn.Module):
+class GNN(nn.Module):
     def __init__(self, in_channels, hidden_dims, out_channels, activation_fn):
         super().__init__()
         self.conv1 = GCNConv(in_channels, hidden_dims[0])
@@ -78,49 +40,65 @@ class SimpleGNN(nn.Module):
         self.norm3 = GraphNorm(hidden_dims[2])
         self.activation3 = activation_fn()
         
+        # Add a final layer for graph-level classification
         self.linear = nn.Linear(hidden_dims[2], out_channels)
 
-    def forward(self, x, edge_index):
+    def forward(self, x, edge_index, batch=None):
         # First layer
         x = self.conv1(x, edge_index)
         x = self.norm1(x)
         x = self.activation1(x)
-        x = F.dropout(x, p=0.5, training=self.training)
+        x = F.dropout(x, p=DROPOUT_RATE, training=self.training)
         
         # Second layer
         x = self.conv2(x, edge_index)
         x = self.norm2(x)
         x = self.activation2(x)
-        x = F.dropout(x, p=0.5, training=self.training)
+        x = F.dropout(x, p=DROPOUT_RATE, training=self.training)
         
         # Third layer
         x = self.conv3(x, edge_index)
         x = self.norm3(x)
         x = self.activation3(x)
-        x = F.dropout(x, p=0.5, training=self.training)
+        x = F.dropout(x, p=DROPOUT_RATE, training=self.training)
+        
+        # Global pooling to get graph-level features
+        x = global_mean_pool(x, batch)
         
         # Output layer
         x = self.linear(x)
         return x
 
-# — Main Experiment Loop —
 def main():
+    # Load MNIST Superpixels dataset
+    print("Loading MNIST Superpixels dataset...")
+    train_dataset = MNISTSuperpixels(root='data/MNISTSuperpixels', train=True)
+    test_dataset = MNISTSuperpixels(root='data/MNISTSuperpixels', train=False)
     
+    # Split training data into train and validation
+    train_size = int(0.9 * len(train_dataset))
+    val_size = len(train_dataset) - train_size
+    train_dataset, val_dataset = torch.utils.data.random_split(train_dataset, [train_size, val_size])
     
-    model = SimpleGNN(
-        in_channels=dataset.num_node_features,
+    # Create data loaders
+    train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
+    val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE)
+    test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE)
+    
+    # Create model
+    model = GNN(
+        in_channels=train_dataset[0].num_node_features,  # Features per superpixel
         hidden_dims=HIDDEN_DIMS,
-        out_channels=dataset.num_classes,
+        out_channels=10,  # 10 classes for MNIST
         activation_fn=activation
     )
     device = get_device(model)
-    data_dev = data.to(device)
-
-    # Setup logging with activation name in the run directory
+    
+    # Setup logging
     base_run_dir = 'runs'
     model_run_prefix = f'GNN_{activation_name}'
     
-    # Remove all existing runs with the same model and activation
+    # Remove existing runs
     if os.path.exists(base_run_dir):
         for item in os.listdir(base_run_dir):
             if item.startswith(model_run_prefix):
@@ -128,17 +106,17 @@ def main():
                 print(f"Removing previous run directory: {full_path}")
                 shutil.rmtree(full_path)
     
-    # Create new run directory with timestamp
+    # Create new run directory
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     run_dir = os.path.join(base_run_dir, f"{model_run_prefix}_{timestamp}")
     writer = make_writer(run_dir)
-
-    # Run experiment with GNN flag
+    
+    # Run experiment
     run_experiment(
         model,
-        data_dev,  # train data
-        data_dev,  # val data
-        data_dev,  # test data
+        train_loader,
+        val_loader,
+        test_loader,
         device,
         writer,
         epochs=EPOCHS,
@@ -147,4 +125,4 @@ def main():
     )
 
 if __name__ == "__main__":
-    main()
+    main() 
