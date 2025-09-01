@@ -31,7 +31,7 @@ def train_one_epoch(model, data_or_loader, criterion, optimizer, device, writer=
     """
     Runs a full training pass. Works for both MLP and GNN models.
     If writer and epoch are provided, logs activation timings to TensorBoard.
-    Returns: (average loss, accuracy)
+    Returns: (average loss, accuracy, activation_timings)
     """
     model.train()
     total_loss, correct = 0.0, 0
@@ -60,7 +60,7 @@ def train_one_epoch(model, data_or_loader, criterion, optimizer, device, writer=
             # Get layer index
             layer_idx = 0
             for m in model.modules():
-                if isinstance(m, (nn.ReLU, nn.Sigmoid, nn.Tanh, nn.LeakyReLU, nn.ELU, nn.GELU)):
+                if isinstance(m, (nn.ReLU, nn.Sigmoid, nn.Tanh, nn.LeakyReLU, nn.ELU, nn.GELU, nn.Mish, nn.SiLU)):
                     if m == module:
                         break
                     layer_idx += 1
@@ -69,27 +69,22 @@ def train_one_epoch(model, data_or_loader, criterion, optimizer, device, writer=
 
         # Register hooks on activation layers
         for name, module in model.named_modules():
-            if isinstance(module, (nn.ReLU, nn.Sigmoid, nn.Tanh, nn.LeakyReLU, nn.ELU, nn.GELU)):
+            if isinstance(module, (nn.ReLU, nn.Sigmoid, nn.Tanh, nn.LeakyReLU, nn.ELU, nn.GELU, nn.Mish, nn.SiLU)):
                 handles.append(module.register_forward_pre_hook(pre_hook))
                 handles.append(module.register_forward_hook(post_hook))
 
     try:
         if is_gnn:
-            # GNN training with batched data
-            for batch in data_or_loader:
-                batch = batch.to(device)
-                out = model(batch.x, batch.edge_index, batch.batch)
-                loss = criterion(out, batch.y)
-                optimizer.zero_grad()
-                loss.backward()
-                optimizer.step()
-                pred = out.argmax(dim=1)
-                acc = (pred == batch.y).float().mean()
-                total_loss += loss.item()
-                correct += acc.item()
-            # Average over batches
-            total_loss /= len(data_or_loader)
-            correct /= len(data_or_loader)
+            # GNN training with single graph
+            out = model(data_or_loader.x, data_or_loader.edge_index)
+            loss = criterion(out[data_or_loader.train_mask], data_or_loader.y[data_or_loader.train_mask])
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+            pred = out[data_or_loader.train_mask].argmax(dim=1)
+            acc = (pred == data_or_loader.y[data_or_loader.train_mask]).float().mean()
+            total_loss = loss.item()
+            correct = acc.item()
         else:
             # MLP training
             for X, y in data_or_loader:
@@ -111,42 +106,44 @@ def train_one_epoch(model, data_or_loader, criterion, optimizer, device, writer=
                 h.remove()
             
             # Log activation timings to TensorBoard with descriptive names
+            total_activation_time = 0
             for name, times in activation_timings.items():
                 if times:  # Only log if we have measurements
                     avg_time = sum(times) / len(times)
+                    total_activation_time += avg_time
                     writer.add_scalar(
                         f"Activation_Time/{name}",
                         avg_time,
                         epoch
                     )
                     print(f"  {name}: {avg_time:.3f} ms (avg over {len(times)} calls)")
+            
+            # Log total activation time
+            writer.add_scalar(
+                "Activation_Time/Total",
+                total_activation_time,
+                epoch
+            )
+            print(f"  Total Activation Time: {total_activation_time:.3f} ms")
 
     if is_gnn:
-        return total_loss, correct
+        return total_loss, correct, activation_timings
     else:
         avg_loss = total_loss / len(data_or_loader.dataset)
         acc = correct / len(data_or_loader.dataset)
-        return avg_loss, acc
+        return avg_loss, acc, activation_timings
 
 def eval_on(model, data_or_loader, criterion, device, is_gnn=False):
     """Runs inference (no grad) over data. Works for both MLP and GNN models."""
     model.eval()
     with torch.no_grad():
         if is_gnn:
-            # GNN evaluation with batched data
-            total_loss, correct = 0.0, 0
-            for batch in data_or_loader:
-                batch = batch.to(device)
-                out = model(batch.x, batch.edge_index, batch.batch)
-                loss = criterion(out, batch.y)
-                pred = out.argmax(dim=1)
-                acc = (pred == batch.y).float().mean()
-                total_loss += loss.item()
-                correct += acc.item()
-            # Average over batches
-            total_loss /= len(data_or_loader)
-            correct /= len(data_or_loader)
-            return total_loss, correct
+            # GNN evaluation with single graph
+            out = model(data_or_loader.x, data_or_loader.edge_index)
+            loss = criterion(out[data_or_loader.val_mask], data_or_loader.y[data_or_loader.val_mask])
+            pred = out[data_or_loader.val_mask].argmax(dim=1)
+            acc = (pred == data_or_loader.y[data_or_loader.val_mask]).float().mean()
+            return loss.item(), acc.item()
         else:
             # MLP evaluation
             total_loss, correct = 0.0, 0
@@ -165,7 +162,7 @@ def run_experiment(model, train_data, val_data, test_data, device, writer, epoch
     optimizer = optim.Adam(model.parameters(), lr=lr)
 
     for epoch in range(1, epochs+1):
-        t_loss, t_acc = train_one_epoch(model, train_data, criterion, optimizer, device, writer, epoch, is_gnn)
+        t_loss, t_acc, t_activation_timings = train_one_epoch(model, train_data, criterion, optimizer, device, writer, epoch, is_gnn)
         v_loss, v_acc = eval_on(model, val_data, criterion, device, is_gnn)
         # Do NOT evaluate on test set here
         log_metrics(writer, epoch, t_loss, t_acc, v_loss, v_acc, None, None)
