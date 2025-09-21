@@ -1,0 +1,23 @@
+{
+    "activation": "Mish",
+    "final_train_loss": 0.0057665697713888105,
+    "final_train_acc": 0.9988333333333334,
+    "final_val_loss": 0.13902530508736768,
+    "final_val_acc": 0.9833333333333333,
+    "final_test_loss": 0.1210159637965262,
+    "final_test_acc": 0.9837,
+    "activation_times": {
+        "layer_1": 0.035948837184628775,
+        "layer_2": 0.021765804650305316,
+        "layer_3": 0.01996584186806928,
+        "layer_4": 0.019733506952260817
+    },
+    "total_activation_time": 0.09741399065526418,
+    "hyperparameters": {
+        "batch_size": 64,
+        "total_epochs": 60,
+        "warmup_epochs": 10,
+        "timing_epochs": 50,
+        "learning_rate": 0.001
+    }
+}

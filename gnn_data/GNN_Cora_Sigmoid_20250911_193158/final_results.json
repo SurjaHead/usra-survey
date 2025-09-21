@@ -1,0 +1,26 @@
+{
+  "model": "GNN",
+  "dataset": "Cora",
+  "activation": "Sigmoid",
+  "test_accuracy": 0.619,
+  "final_train_accuracy": 0.5,
+  "final_val_accuracy": 0.574,
+  "final_train_loss": 1.3794764280319214,
+  "final_val_loss": 1.6764416694641113,
+  "total_epochs": 200,
+  "warmup_epochs": 10,
+  "timing_epochs": 190,
+  "learning_rate": 0.01,
+  "weight_decay": 0.005,
+  "dropout": 0.5,
+  "hidden_dims": [
+    16
+  ],
+  "architecture": "1433 \u2192 16 \u2192 7",
+  "timestamp": "20250911_193158",
+  "final_total_activation_time": 0.04699733294546604,
+  "final_activation_times": {
+    "activation1": 0.025023999934395153,
+    "activation2": 0.02197333301107089
+  }
+}

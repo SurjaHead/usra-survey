@@ -1,0 +1,26 @@
+{
+  "model": "GNN",
+  "dataset": "Cora",
+  "activation": "SiLU",
+  "test_accuracy": 0.72,
+  "final_train_accuracy": 0.5642857142857143,
+  "final_val_accuracy": 0.684,
+  "final_train_loss": 1.04158616065979,
+  "final_val_loss": 1.2096331119537354,
+  "total_epochs": 200,
+  "warmup_epochs": 10,
+  "timing_epochs": 190,
+  "learning_rate": 0.01,
+  "weight_decay": 0.005,
+  "dropout": 0.5,
+  "hidden_dims": [
+    16
+  ],
+  "architecture": "1433 \u2192 16 \u2192 7",
+  "timestamp": "20250911_193203",
+  "final_total_activation_time": 0.04926933286090692,
+  "final_activation_times": {
+    "activation1": 0.025653333092729252,
+    "activation2": 0.02361599976817767
+  }
+}

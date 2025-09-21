@@ -1,0 +1,23 @@
+{
+    "activation": "GELU",
+    "final_train_loss": 0.00159176497796722,
+    "final_train_acc": 0.9996481481481482,
+    "final_val_loss": 0.16328745832045874,
+    "final_val_acc": 0.9825,
+    "final_test_loss": 0.14545545363798737,
+    "final_test_acc": 0.9827,
+    "activation_times": {
+        "layer_1": 0.036491125527509424,
+        "layer_2": 0.022118846502501604,
+        "layer_3": 0.020342325624944858,
+        "layer_4": 0.01993823259592403
+    },
+    "total_activation_time": 0.09889053025087992,
+    "hyperparameters": {
+        "batch_size": 64,
+        "total_epochs": 60,
+        "warmup_epochs": 10,
+        "timing_epochs": 50,
+        "learning_rate": 0.001
+    }
+}

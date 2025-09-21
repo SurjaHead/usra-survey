@@ -1,0 +1,26 @@
+{
+  "model": "GNN",
+  "dataset": "Cora",
+  "activation": "Tanh",
+  "test_accuracy": 0.705,
+  "final_train_accuracy": 0.6428571428571429,
+  "final_val_accuracy": 0.698,
+  "final_train_loss": 0.9064546823501587,
+  "final_val_loss": 1.2730987071990967,
+  "total_epochs": 200,
+  "warmup_epochs": 10,
+  "timing_epochs": 190,
+  "learning_rate": 0.01,
+  "weight_decay": 0.005,
+  "dropout": 0.5,
+  "hidden_dims": [
+    16
+  ],
+  "architecture": "1433 \u2192 16 \u2192 7",
+  "timestamp": "20250911_193200",
+  "final_total_activation_time": 0.04853333346545696,
+  "final_activation_times": {
+    "activation1": 0.02561066672205925,
+    "activation2": 0.022922666743397713
+  }
+}

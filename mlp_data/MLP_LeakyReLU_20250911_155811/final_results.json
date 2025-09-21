@@ -1,0 +1,23 @@
+{
+    "activation": "LeakyReLU",
+    "final_train_loss": 0.000743865237860715,
+    "final_train_acc": 0.9997777777777778,
+    "final_val_loss": 0.14686705668767294,
+    "final_val_acc": 0.9831666666666666,
+    "final_test_loss": 0.1356391267850995,
+    "final_test_acc": 0.9849,
+    "activation_times": {
+        "layer_1": 0.03915162779564081,
+        "layer_2": 0.02391977674695988,
+        "layer_3": 0.021395758199397215,
+        "layer_4": 0.02033800930217948
+    },
+    "total_activation_time": 0.10480517204417737,
+    "hyperparameters": {
+        "batch_size": 64,
+        "total_epochs": 60,
+        "warmup_epochs": 10,
+        "timing_epochs": 50,
+        "learning_rate": 0.001
+    }
+}

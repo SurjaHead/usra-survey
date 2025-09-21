@@ -1,0 +1,23 @@
+{
+    "activation": "Sigmoid",
+    "final_train_loss": 4.4594735376045316e-05,
+    "final_train_acc": 1.0,
+    "final_val_loss": 0.12418884038925171,
+    "final_val_acc": 0.9831666666666666,
+    "final_test_loss": 0.11954615702852607,
+    "final_test_acc": 0.9828,
+    "activation_times": {
+        "layer_1": 0.037291981366484664,
+        "layer_2": 0.022904632548086865,
+        "layer_3": 0.02115449305667087,
+        "layer_4": 0.02097670701224097
+    },
+    "total_activation_time": 0.10232781398348337,
+    "hyperparameters": {
+        "batch_size": 64,
+        "total_epochs": 60,
+        "warmup_epochs": 10,
+        "timing_epochs": 50,
+        "learning_rate": 0.001
+    }
+}

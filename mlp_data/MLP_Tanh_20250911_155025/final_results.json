@@ -1,0 +1,23 @@
+{
+    "activation": "Tanh",
+    "final_train_loss": 0.004999931467390895,
+    "final_train_acc": 0.9982222222222222,
+    "final_val_loss": 0.1398901455104351,
+    "final_val_acc": 0.9743333333333334,
+    "final_test_loss": 0.10643753949552774,
+    "final_test_acc": 0.9791,
+    "activation_times": {
+        "layer_1": 0.03781119998717724,
+        "layer_2": 0.022723906970214706,
+        "layer_3": 0.02150318139167719,
+        "layer_4": 0.020893879070184952
+    },
+    "total_activation_time": 0.1029321674192541,
+    "hyperparameters": {
+        "batch_size": 64,
+        "total_epochs": 60,
+        "warmup_epochs": 10,
+        "timing_epochs": 50,
+        "learning_rate": 0.001
+    }
+}

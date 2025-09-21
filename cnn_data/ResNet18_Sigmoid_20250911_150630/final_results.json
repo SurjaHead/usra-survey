@@ -1,0 +1,34 @@
+{
+    "activation": "Sigmoid",
+    "final_train_loss": 0.19248911236763,
+    "final_train_acc": 0.93382,
+    "final_val_loss": 0.3321259225845337,
+    "final_val_acc": 0.8895,
+    "activation_times": {
+        "main_activation": 0.03802958115229624,
+        "layer1_block0_activation1": 0.031167766761258653,
+        "layer1_block0_activation2": 0.02978628783237413,
+        "layer1_block1_activation1": 0.02818086707391157,
+        "layer1_block1_activation2": 0.028026695772055504,
+        "layer2_block0_activation1": 0.02729314391608121,
+        "layer2_block0_activation2": 0.02746684153060444,
+        "layer2_block1_activation1": 0.02668759195246006,
+        "layer2_block1_activation2": 0.025888524579735835,
+        "layer3_block0_activation1": 0.024949566503555832,
+        "layer3_block0_activation2": 0.025950018180795488,
+        "layer3_block1_activation1": 0.025267409783311337,
+        "layer3_block1_activation2": 0.025376582837142798,
+        "layer4_block0_activation1": 0.02153034602802498,
+        "layer4_block0_activation2": 0.022425180337542774,
+        "layer4_block1_activation1": 0.022023402529349635,
+        "layer4_block1_activation2": 0.022421857886667784
+    },
+    "avg_total_activation_time_per_forward_pass": 0.45247166465716826,
+    "hyperparameters": {
+        "batch_size": 128,
+        "epochs": 90,
+        "learning_rate": 0.1,
+        "momentum": 0.9,
+        "weight_decay": 0.0001
+    }
+}

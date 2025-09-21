@@ -1,0 +1,19 @@
+{
+  "model": "BERT",
+  "dataset": "MNIST",
+  "activation": "Mish",
+  "final_train_accuracy": 0.9112222222222223,
+  "final_val_accuracy": 0.9215,
+  "final_train_loss": 0.2979010075485265,
+  "final_val_loss": 0.26441643148163957,
+  "epochs": 3,
+  "learning_rate": 5e-05,
+  "batch_size": 16,
+  "num_encoders": 12,
+  "num_heads": 12,
+  "dimensionality": 768,
+  "ffn_hidden": 3072,
+  "architecture": "BERT: 12 encoders, 12 heads, FFN 768\u21923072\u2192768",
+  "total_steps": 10125,
+  "timestamp": "20250912_002811"
+}

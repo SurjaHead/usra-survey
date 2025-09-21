@@ -1,0 +1,19 @@
+{
+  "model": "BERT",
+  "dataset": "MNIST",
+  "activation": "Tanh",
+  "final_train_accuracy": 0.10124074074074074,
+  "final_val_accuracy": 0.11983333333333333,
+  "final_train_loss": 2.311198121883251,
+  "final_val_loss": 2.3060454909006753,
+  "epochs": 3,
+  "learning_rate": 5e-05,
+  "batch_size": 16,
+  "num_encoders": 12,
+  "num_heads": 12,
+  "dimensionality": 768,
+  "ffn_hidden": 3072,
+  "architecture": "BERT: 12 encoders, 12 heads, FFN 768\u21923072\u2192768",
+  "total_steps": 10125,
+  "timestamp": "20250911_201257"
+}

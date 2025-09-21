@@ -1,0 +1,26 @@
+{
+  "model": "GNN",
+  "dataset": "Cora",
+  "activation": "Mish",
+  "test_accuracy": 0.744,
+  "final_train_accuracy": 0.5785714285714286,
+  "final_val_accuracy": 0.722,
+  "final_train_loss": 1.0201749801635742,
+  "final_val_loss": 1.1068942546844482,
+  "total_epochs": 200,
+  "warmup_epochs": 10,
+  "timing_epochs": 190,
+  "learning_rate": 0.01,
+  "weight_decay": 0.005,
+  "dropout": 0.5,
+  "hidden_dims": [
+    16
+  ],
+  "architecture": "1433 \u2192 16 \u2192 7",
+  "timestamp": "20250911_193205",
+  "final_total_activation_time": 0.05045333318412304,
+  "final_activation_times": {
+    "activation1": 0.024800000091393787,
+    "activation2": 0.025653333092729252
+  }
+}

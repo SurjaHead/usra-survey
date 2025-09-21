@@ -1,0 +1,34 @@
+{
+    "activation": "ELU",
+    "final_train_loss": 0.01719103873051703,
+    "final_train_acc": 0.99486,
+    "final_val_loss": 0.3940550922393799,
+    "final_val_acc": 0.9174,
+    "activation_times": {
+        "main_activation": 0.04120667385978994,
+        "layer1_block0_activation1": 0.029730331559813087,
+        "layer1_block0_activation2": 0.029053668452525182,
+        "layer1_block1_activation1": 0.027087096576129368,
+        "layer1_block1_activation2": 0.026941726754380488,
+        "layer2_block0_activation1": 0.027594375188287706,
+        "layer2_block0_activation2": 0.027879927134334716,
+        "layer2_block1_activation1": 0.02685633516159648,
+        "layer2_block1_activation2": 0.026580167561090925,
+        "layer3_block0_activation1": 0.024578856053220986,
+        "layer3_block0_activation2": 0.028490316954005394,
+        "layer3_block1_activation1": 0.025432830632330074,
+        "layer3_block1_activation2": 0.02882465572929339,
+        "layer4_block0_activation1": 0.024653639288140777,
+        "layer4_block0_activation2": 0.025842360673787815,
+        "layer4_block1_activation1": 0.02294434976843754,
+        "layer4_block1_activation2": 0.02618742439614266
+    },
+    "avg_total_activation_time_per_forward_pass": 0.4698847357433065,
+    "hyperparameters": {
+        "batch_size": 128,
+        "epochs": 90,
+        "learning_rate": 0.1,
+        "momentum": 0.9,
+        "weight_decay": 0.0001
+    }
+}

@@ -1,0 +1,23 @@
+{
+    "activation": "ReLU",
+    "final_train_loss": 0.005648885015480525,
+    "final_train_acc": 0.9987037037037036,
+    "final_val_loss": 0.23240205397208533,
+    "final_val_acc": 0.9771666666666666,
+    "final_test_loss": 0.1473441107198596,
+    "final_test_acc": 0.9825,
+    "activation_times": {
+        "layer_1": 0.04158210226789463,
+        "layer_2": 0.024119479068403327,
+        "layer_3": 0.022121786048939062,
+        "layer_4": 0.02194839071612372
+    },
+    "total_activation_time": 0.10977175810136075,
+    "hyperparameters": {
+        "batch_size": 64,
+        "total_epochs": 60,
+        "warmup_epochs": 10,
+        "timing_epochs": 50,
+        "learning_rate": 0.001
+    }
+}

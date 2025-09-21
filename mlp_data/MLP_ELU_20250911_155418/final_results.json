@@ -1,0 +1,23 @@
+{
+    "activation": "ELU",
+    "final_train_loss": 0.008954940612925006,
+    "final_train_acc": 0.9979814814814815,
+    "final_val_loss": 0.14705270156264305,
+    "final_val_acc": 0.9818333333333333,
+    "final_test_loss": 0.11124065816402436,
+    "final_test_acc": 0.9814,
+    "activation_times": {
+        "layer_1": 0.03887951622262251,
+        "layer_2": 0.02300606516384801,
+        "layer_3": 0.02111066045932645,
+        "layer_4": 0.020485618619551494
+    },
+    "total_activation_time": 0.10348186046534846,
+    "hyperparameters": {
+        "batch_size": 64,
+        "total_epochs": 60,
+        "warmup_epochs": 10,
+        "timing_epochs": 50,
+        "learning_rate": 0.001
+    }
+}

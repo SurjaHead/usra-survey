@@ -1,0 +1,23 @@
+{
+    "activation": "SiLU",
+    "final_train_loss": 0.003728640547394732,
+    "final_train_acc": 0.9992592592592593,
+    "final_val_loss": 0.11950925861795743,
+    "final_val_acc": 0.9848333333333333,
+    "final_test_loss": 0.13216368895955383,
+    "final_test_acc": 0.9837,
+    "activation_times": {
+        "layer_1": 0.036510548822928306,
+        "layer_2": 0.02154563722568889,
+        "layer_3": 0.020046958173516878,
+        "layer_4": 0.019857488377669524
+    },
+    "total_activation_time": 0.0979606325998036,
+    "hyperparameters": {
+        "batch_size": 64,
+        "total_epochs": 60,
+        "warmup_epochs": 10,
+        "timing_epochs": 50,
+        "learning_rate": 0.001
+    }
+}

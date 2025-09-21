@@ -1,0 +1,34 @@
+{
+    "activation": "GELU",
+    "final_train_loss": 0.0026836675632558762,
+    "final_train_acc": 0.99938,
+    "final_val_loss": 0.4214171433448792,
+    "final_val_acc": 0.9186,
+    "activation_times": {
+        "main_activation": 0.0400151551000516,
+        "layer1_block0_activation1": 0.02697699084090839,
+        "layer1_block0_activation2": 0.024340692161156613,
+        "layer1_block1_activation1": 0.02205184701226231,
+        "layer1_block1_activation2": 0.02324307470400911,
+        "layer2_block0_activation1": 0.023054513637526114,
+        "layer2_block0_activation2": 0.024013114757225163,
+        "layer2_block1_activation1": 0.024924794206894488,
+        "layer2_block1_activation2": 0.022345326067319985,
+        "layer3_block0_activation1": 0.020884109270811513,
+        "layer3_block0_activation2": 0.023592451748477197,
+        "layer3_block1_activation1": 0.021754171231079623,
+        "layer3_block1_activation2": 0.021693085635823957,
+        "layer4_block0_activation1": 0.019435366126242175,
+        "layer4_block0_activation2": 0.020130156671699605,
+        "layer4_block1_activation1": 0.01893018575246108,
+        "layer4_block1_activation2": 0.021241530039787074
+    },
+    "avg_total_activation_time_per_forward_pass": 0.398626564963736,
+    "hyperparameters": {
+        "batch_size": 128,
+        "epochs": 90,
+        "learning_rate": 0.1,
+        "momentum": 0.9,
+        "weight_decay": 0.0001
+    }
+}
